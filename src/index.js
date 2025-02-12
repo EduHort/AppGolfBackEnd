@@ -7,11 +7,9 @@ const app = express();
 app.use(cors()); // Permite requisições do frontend
 app.use(express.json()); // Permite receber JSON no body das requisições
 
-const rotasQuestionario = require("./routes/rotasQuestionario");
 const pdfRoutes = require("./routes/pdf");
 
 // Rotas
-app.use("/api", rotasQuestionario);
 app.use("/api", pdfRoutes);
 
 // Define a porta do servidor

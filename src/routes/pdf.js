@@ -5,46 +5,74 @@ const { ChartJSNodeCanvas } = require("chartjs-node-canvas");
 const ChartDataLabels = require("chartjs-plugin-datalabels");
 const path = require("path");
 const slugify = require("slugify");
+const client = require("../controllers/whatsapp");
+const { MessageMedia } = require('whatsapp-web.js');
 
 const router = express.Router();
 
 async function generateChartImage(data) {
-    const width = 1000;
-    const height = 400;
-    const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
-  
-    const configuration = {
+  const width = 1000;
+  const height = 400;
+  const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
+
+  const configuration = {
       type: "bar",
       data: {
-        labels: ["Bateria 1", "Bateria 2", "Bateria 3", "Bateria 4", "Bateria 5", "Bateria 6", "Bateria 7", "Bateria 8"],
-        datasets: [
-          {
-            label: "Tensão (V)",
-            data: data,
-            backgroundColor: "rgba(0, 0, 255, 0.6)",
-          },
-        ],
+          labels: ["Bateria 1", "Bateria 2", "Bateria 3", "Bateria 4", "Bateria 5", "Bateria 6", "Bateria 7", "Bateria 8"],
+          datasets: [
+              {
+                  data: data,
+                  backgroundColor: "rgba(0, 0, 255, 0.6)",
+              },
+          ],
       },
       options: {
-        plugins: {
-          datalabels: {
-            anchor: "end",
-            align: "top",
-            font: { weight: "bold", size: 14 },
-            color: "black",
-            formatter: (value) => (value === 0 ? null : `${value}V`),
+          plugins: {
+              datalabels: {
+                  anchor: "end",
+                  align: "start", // Alinha um pouco melhor para evitar sobreposições aleatórias
+                  font: { weight: "bold", size: 14 },
+                  color: "black",
+                  formatter: (value) => (value === 0 ? null : `${value}V`),
+              },
+              legend: {
+                  display: false
+              }
           },
-        },
-        scales: {
-          x: { ticks: { font: { weight: "bold" } } },
-          y: { ticks: { font: { weight: "bold" } } },
-        },
+          layout: {
+              padding: {
+                  top: 20 // Evita que labels fiquem fora do gráfico
+              }
+          },
+          scales: {
+              x: {
+                  ticks: {
+                      font: { weight: "bold" },
+                      color: "black"
+                  }
+              },
+              y: {
+                  ticks: {
+                      font: { weight: "bold" },
+                      color: "black"
+                  },
+                  title: {
+                      display: true,
+                      text: "Tensão (V)",
+                      font: {
+                          weight: "bold",
+                          size: 16
+                      },
+                      color: "black"
+                  }
+              }
+          }
       },
       plugins: [ChartDataLabels],
-    };
-  
-    return await chartJSNodeCanvas.renderToBuffer(configuration);
-  }
+  };
+
+  return await chartJSNodeCanvas.renderToBuffer(configuration);
+}
 
 router.post("/gerar-pdf", async (req, res) => {
     try {
@@ -72,7 +100,7 @@ router.post("/gerar-pdf", async (req, res) => {
         // Preenche os campos do PDF
         form.getTextField("nome").setText(clientData.name);
         form.getTextField("email").setText(clientData.email);
-        form.getTextField("fone").setText(clientData.phone);
+        form.getTextField("fone").setText(formatPhoneNumberPDF(clientData.phone));
         form.getTextField("clube").setText(clientData.club + "    " + clientData.city + " - " + clientData.state);
         form.getTextField("marca").setText(cartData.brand);
         form.getTextField("modelo").setText(cartData.model);
@@ -92,7 +120,7 @@ router.post("/gerar-pdf", async (req, res) => {
         const image = await pdfDoc.embedPng(chartImage);
         const page = pdfDoc.getPages()[0];
         page.drawImage(image, {
-            x: 30,
+            x: 25,
             y: 150,
             width: 600,
             height: 170
@@ -105,13 +133,46 @@ router.post("/gerar-pdf", async (req, res) => {
         const modifiedPdfBytes = await pdfDoc.save();
         fs.writeFileSync(outputPath, modifiedPdfBytes);
 
-        console.log('PDF preenchido e gráfico inserido com sucesso!');
+        // Enviar o PDF pelo WhatsApp
+        const phoneNumber = formatPhoneNumberWapp(clientData.phone);
+        const media = MessageMedia.fromFilePath(outputPath);
+        await client.sendMessage(phoneNumber, media, { caption: `Olá ${clientData.name}, segue seu relatório.` });
 
-        res.json({ message: "PDF gerado", path: outputPath });
+        console.log("PDF enviado pelo WhatsApp para:", phoneNumber);
+
+        res.json({ message: "PDF gerado e enviado pelo WhatsApp", path: outputPath });
     } catch (error) {
-        console.error("Erro ao gerar o PDF:", error);
-        res.status(500).json({ error: "Erro ao gerar o PDF" });
+        console.error("Erro ao gerar ou enviar o PDF:", error);
+        res.status(500).json({ error: "Erro ao gerar ou enviar o PDF" });
     }
 });
+
+function formatPhoneNumberWapp(phone) {
+    let rawPhone = phone.replace(/\D/g, ""); // Remove caracteres não numéricos
+    if (!rawPhone.startsWith("55")) {
+      rawPhone = "55" + rawPhone;
+    }
+    if (rawPhone.length === 13 && rawPhone[4] === "9") {
+      rawPhone = rawPhone.slice(0, 4) + rawPhone.slice(5);
+    }
+    return `${rawPhone}@c.us`;
+};
+
+function formatPhoneNumberPDF(phone) {
+  let rawPhone = phone.replace(/\D/g, ""); // Remove tudo que não for número
+
+  if (rawPhone.length === 11 && rawPhone.startsWith("55")) {
+      rawPhone = rawPhone.slice(2); // Remove o código do país se já estiver presente
+  }
+
+  if (rawPhone.length === 10) {
+      return `(${rawPhone.slice(0, 2)}) ${rawPhone.slice(2, 6)}-${rawPhone.slice(6)}`;
+  } else if (rawPhone.length === 11) {
+      return `(${rawPhone.slice(0, 2)}) 9 ${rawPhone.slice(3, 7)}-${rawPhone.slice(7)}`;
+  }
+
+  return phone; // Retorna o original se não bater com os formatos esperados
+}
+
 
 module.exports = router;
