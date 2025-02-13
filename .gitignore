@@ -1,7 +1,6 @@
 node_modules/
 
-.wwebjs_cache/
-.wwebjs_auth/
+.env
 
 src/assets/*
 !src/assets/Relatorio.pdf

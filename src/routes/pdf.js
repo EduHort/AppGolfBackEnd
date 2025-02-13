@@ -7,6 +7,7 @@ const path = require("path");
 const slugify = require("slugify");
 const client = require("../controllers/whatsapp");
 const { MessageMedia } = require('whatsapp-web.js');
+const saveData = require("../controllers/saveDB");
 
 const router = express.Router();
 
@@ -105,7 +106,9 @@ router.post("/gerar-pdf", async (req, res) => {
         form.getTextField("marca").setText(cartData.brand);
         form.getTextField("modelo").setText(cartData.model);
         form.getTextField("numero").setText(cartData.number);
+        form.getTextField("marcaBat").setText(batteryData.brand);
         form.getTextField("quantidade").setText(batteryData.quantity);
+        form.getTextField("tipo").setText(batteryData.type);
         form.getTextField("tensao").setText(batteryData.voltage);
         form.getTextField("caixa").setText(batteryCheckData.batteryBox);
         form.getTextField("parafusos").setText(batteryCheckData.screws);
@@ -138,7 +141,7 @@ router.post("/gerar-pdf", async (req, res) => {
         const media = MessageMedia.fromFilePath(outputPath);
         await client.sendMessage(phoneNumber, media, { caption: `Olá ${clientData.name}, segue seu relatório.` });
 
-        console.log("PDF enviado pelo WhatsApp para:", phoneNumber);
+        await saveData(req.body);
 
         res.json({ message: "PDF gerado e enviado pelo WhatsApp", path: outputPath });
     } catch (error) {
