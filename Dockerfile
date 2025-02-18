@@ -30,4 +30,4 @@ COPY . .
 EXPOSE 5000
 
 # Define o comando para iniciar o aplicativo
-CMD [ "node", "index.js" ]
+CMD [ "node", "src/index.js" ]
