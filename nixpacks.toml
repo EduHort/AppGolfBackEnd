@@ -1,5 +1,6 @@
 [phases.setup]
   aptPkgs = [
+    'chromium',
     'ca-certificates',
     'fonts-liberation',
     'libasound2',
