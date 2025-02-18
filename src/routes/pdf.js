@@ -84,7 +84,7 @@ router.post("/gerar-pdf", async (req, res) => {
         }
     
         // Caminhos do PDF base e do PDF final
-        const inputPath = path.resolve(__dirname, "../assets/relatorio.pdf");
+        const inputPath = path.resolve(__dirname, "../assets/Relatorio.pdf");
 
         const safeClientName = slugify(clientData.name, {
             lower: true,

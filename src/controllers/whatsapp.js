@@ -25,3 +25,4 @@ client.on('ready', () => {
 // Inicia o cliente
 client.initialize();
 
+module.exports = client;
