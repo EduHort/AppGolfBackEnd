@@ -19,7 +19,6 @@
     "express": "^4.21.2",
     "pdf-lib": "^1.17.1",
     "pg": "^8.13.3",
-    "puppeteer-core": "^24.2.1",
     "qrcode-terminal": "^0.12.0",
     "slugify": "^1.6.6",
     "whatsapp-web.js": "^1.26.0"
