@@ -8,6 +8,7 @@ const slugify = require("slugify");
 const client = require("../controllers/whatsapp");
 const { MessageMedia } = require('whatsapp-web.js');
 const saveData = require("../controllers/saveDB");
+const sendEmail = require("../controllers/email");
 
 const router = express.Router();
 
@@ -30,8 +31,8 @@ async function generateChartImage(data) {
       options: {
           plugins: {
               datalabels: {
-                  anchor: "end",
-                  align: "start", // Alinha um pouco melhor para evitar sobreposições aleatórias
+                  anchor: "center",
+                  align: "center",
                   font: { weight: "bold", size: 14 },
                   color: "black",
                   formatter: (value) => (value === 0 ? null : `${value}V`),
@@ -139,7 +140,9 @@ router.post("/gerar-pdf", async (req, res) => {
         // Enviar o PDF pelo WhatsApp
         const phoneNumber = formatPhoneNumberWapp(clientData.phone);
         const media = MessageMedia.fromFilePath(outputPath);
-        await client.sendMessage(phoneNumber, media, { caption: `Olá ${clientData.name}, segue seu relatório.` });
+        await client.sendMessage(phoneNumber, media, { caption: `Olá ${clientData.name}, segue seu relatório dp PitStop do carrinho de golf.` });
+
+        await sendEmail(clientData.email, clientData.name, safeClientName, outputPath);
 
         await saveData(req.body);
 

@@ -1,9 +1,32 @@
 const pool = require("../config/db");
 
+async function connectWithRetry(attempts = 3) {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      // Tentativa de consulta simples para garantir que a conexão está ativa
+      await pool.query("SELECT 1");
+      console.log("✅ Banco conectado com sucesso!");
+      break;
+    } catch (error) {
+      console.error(`Erro na conexão (${i + 1}/${attempts}):`, error);
+      if (i < attempts - 1) {
+        console.log("Tentando reconectar em 3 segundos...");
+        await new Promise((res) => setTimeout(res, 3000));
+      } else {
+        console.log("❌ Falha ao conectar após várias tentativas.");
+        throw new Error("Falha ao conectar com o banco após várias tentativas.");
+      }
+    }
+  }
+}
+
 async function saveData(data) {
   const { batteryData, voltageData, cartData, clientData, batteryCheckData, employeeName } = data;
 
   try {
+    // Primeiro tenta conectar ao banco antes de salvar
+    await connectWithRetry();  // Adiciona a reconexão automática aqui
+
     // Inserção dos dados na tabela "questionarios"
     await pool.query(
       `INSERT INTO questionarios 
