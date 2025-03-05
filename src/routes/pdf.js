@@ -166,7 +166,7 @@ router.post("/gerar-pdf", async (req, res) => {
     
         try {
             await sendEmail(clientData.email, clientData.name, safeClientName, outputPath);
-            successMessage += " e Email";
+            successMessage += " e Email.";
         } catch (error) {
             console.error("Erro ao enviar Email:", error);
             logError(`Erro ao enviar Email para ${clientData.email}: ${error.message}`);
@@ -175,7 +175,7 @@ router.post("/gerar-pdf", async (req, res) => {
     
         try {
             await saveData(req.body);
-            successMessage += " e salvo no banco de dados.";
+            //successMessage += " e salvo no banco de dados.";
         } catch (error) {
             console.error("Erro ao salvar no banco de dados:", error);
             logError(`Erro ao salvar dados no banco para ${clientData.email}: ${error.message}`);
