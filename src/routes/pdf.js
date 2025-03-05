@@ -2,7 +2,6 @@ const express = require("express");
 const { PDFDocument } = require("pdf-lib");
 const fs = require("fs");
 const { ChartJSNodeCanvas } = require("chartjs-node-canvas");
-const ChartDataLabels = require("chartjs-plugin-datalabels");
 const path = require("path");
 const slugify = require("slugify");
 const client = require("../controllers/whatsapp");
@@ -13,67 +12,81 @@ const sendEmail = require("../controllers/email");
 const router = express.Router();
 
 async function generateChartImage(data) {
-  const width = 1000;
-  const height = 400;
-  const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
-
-  const configuration = {
-      type: "bar",
-      data: {
-          labels: ["Bateria 1", "Bateria 2", "Bateria 3", "Bateria 4", "Bateria 5", "Bateria 6", "Bateria 7", "Bateria 8"],
-          datasets: [
-              {
-                  data: data,
-                  backgroundColor: "rgba(0, 0, 255, 0.6)",
-              },
-          ],
-      },
-      options: {
-          plugins: {
-              datalabels: {
-                  anchor: "center",
-                  align: "center",
-                  font: { weight: "bold", size: 14 },
-                  color: "black",
-                  formatter: (value) => (value === 0 ? null : `${value}V`),
-              },
-              legend: {
-                  display: false
-              }
-          },
-          layout: {
-              padding: {
-                  top: 20 // Evita que labels fiquem fora do gráfico
-              }
-          },
-          scales: {
-              x: {
-                  ticks: {
-                      font: { weight: "bold" },
-                      color: "black"
-                  }
-              },
-              y: {
-                  ticks: {
-                      font: { weight: "bold" },
-                      color: "black"
-                  },
-                  title: {
-                      display: true,
-                      text: "Tensão (V)",
-                      font: {
-                          weight: "bold",
-                          size: 16
-                      },
-                      color: "black"
-                  }
-              }
-          }
-      },
-      plugins: [ChartDataLabels],
-  };
-
-  return await chartJSNodeCanvas.renderToBuffer(configuration);
+    const width = 1000;
+    const height = 400;
+    const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
+  
+    const configuration = {
+        type: "bar",
+        data: {
+            labels: ["Bateria 1", "Bateria 2", "Bateria 3", "Bateria 4", "Bateria 5", "Bateria 6", "Bateria 7", "Bateria 8"],
+            datasets: [
+                {
+                    data: data,
+                    backgroundColor: "rgba(0, 0, 255, 0.6)",
+                },
+            ],
+        },
+        options: {
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            layout: {
+                padding: {
+                    top: 20 // Evita que labels fiquem fora do gráfico
+                }
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        font: { weight: "bold" },
+                        color: "black"
+                    }
+                },
+                y: {
+                    ticks: {
+                        font: { weight: "bold" },
+                        color: "black"
+                    },
+                    title: {
+                        display: true,
+                        text: "Tensão (V)",
+                        font: {
+                            weight: "bold",
+                            size: 16
+                        },
+                        color: "black"
+                    }
+                }
+            }
+        },
+        plugins: [{
+            id: 'customLabels',
+            afterDraw: (chart) => {
+                const ctx = chart.ctx;
+                ctx.save();
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                chart.data.datasets[0].data.forEach((value, index) => {
+                    if (value === 0) return; // Pula valores zero
+                    
+                    const meta = chart.getDatasetMeta(0);
+                    const x = meta.data[index].x;
+                    const y = meta.data[index].y - 15; // Posiciona um pouco acima da barra
+                    
+                    ctx.fillStyle = 'black';
+                    ctx.fillText(`${value}V`, x, y);
+                });
+                ctx.restore();
+            }
+        }]
+    };
+  
+    return await chartJSNodeCanvas.renderToBuffer(configuration);
 }
 
 router.post("/gerar-pdf", async (req, res) => {
@@ -140,16 +153,39 @@ router.post("/gerar-pdf", async (req, res) => {
         // Enviar o PDF pelo WhatsApp
         const phoneNumber = formatPhoneNumberWapp(clientData.phone);
         const media = MessageMedia.fromFilePath(outputPath);
-        await client.sendMessage(phoneNumber, media, { caption: `Olá ${clientData.name}, segue seu relatório dp PitStop do carrinho de golf.` });
+        let successMessage = "PDF gerado";
 
-        await sendEmail(clientData.email, clientData.name, safeClientName, outputPath);
-
-        await saveData(req.body);
-
-        res.json({ message: "PDF gerado e enviado pelo WhatsApp", path: outputPath });
+        try {
+            await client.sendMessage(phoneNumber, media, { caption: `Olá ${clientData.name}, segue seu relatório do PitStop do carrinho de golf.` });
+            successMessage += " e enviado pelo WhatsApp";
+        } catch (error) {
+            console.error("Erro ao enviar WhatsApp:", error);
+            logError(`Erro ao enviar WhatsApp para ${clientData.phone}: ${error.message}`);
+            successMessage += ", mas não foi possível enviar por WhatsApp";
+        }
+    
+        try {
+            await sendEmail(clientData.email, clientData.name, safeClientName, outputPath);
+            successMessage += " e Email";
+        } catch (error) {
+            console.error("Erro ao enviar Email:", error);
+            logError(`Erro ao enviar Email para ${clientData.email}: ${error.message}`);
+            successMessage += ", mas não foi possível enviar por Email";
+        }
+    
+        try {
+            await saveData(req.body);
+            successMessage += " e salvo no banco de dados.";
+        } catch (error) {
+            console.error("Erro ao salvar no banco de dados:", error);
+            logError(`Erro ao salvar dados no banco para ${clientData.email}: ${error.message}`);
+            successMessage += ", mas não foi possível salvar no banco de dados.";
+        }
+    
+        res.json({ message: successMessage, path: outputPath });
     } catch (error) {
         console.error("Erro ao gerar ou enviar o PDF:", error);
-        res.status(500).json({ error: "Erro ao gerar ou enviar o PDF" });
+        res.status(500).json({ error: "Erro ao gerar ou enviar o PDF \n " + error.message || "Erro desconhecido" });
     }
 });
 
@@ -178,7 +214,14 @@ function formatPhoneNumberPDF(phone) {
   }
 
   return phone; // Retorna o original se não bater com os formatos esperados
-}
+};
 
+function logError(message) {
+    const logPath = path.resolve(__dirname, "../logs/logs.txt"); // Caminho do arquivo
+    const timestamp = new Date().toISOString(); // Data e hora no formato ISO
+    const logMessage = `[${timestamp}] ${message}\n`;
+
+    fs.appendFileSync(logPath, logMessage, "utf8"); // Adiciona ao arquivo sem sobrescrever
+};
 
 module.exports = router;
