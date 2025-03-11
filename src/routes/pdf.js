@@ -1,5 +1,5 @@
 const express = require("express");
-const { PDFDocument } = require("pdf-lib");
+const { PDFDocument, StandardFonts } = require("pdf-lib");
 const fs = require("fs");
 const { ChartJSNodeCanvas } = require("chartjs-node-canvas");
 const path = require("path");
@@ -12,14 +12,14 @@ const sendEmail = require("../controllers/email");
 const router = express.Router();
 
 async function generateChartImage(data) {
-    const width = 1000;
-    const height = 400;
+    const width = 750;
+    const height = 510;
     const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
   
     const configuration = {
         type: "bar",
         data: {
-            labels: ["Bateria 1", "Bateria 2", "Bateria 3", "Bateria 4", "Bateria 5", "Bateria 6", "Bateria 7", "Bateria 8"],
+            labels: ["Bat 1", "Bat 2", "Bat 3", "Bat 4", "Bat 5", "Bat 6", "Bat 7", "Bat 8"],
             datasets: [
                 {
                     data: data,
@@ -43,6 +43,9 @@ async function generateChartImage(data) {
                     ticks: {
                         font: { weight: "bold" },
                         color: "black"
+                    },
+                    grid: {
+                        display: false // Remove as linhas de grade no eixo X
                     }
                 },
                 y: {
@@ -50,14 +53,8 @@ async function generateChartImage(data) {
                         font: { weight: "bold" },
                         color: "black"
                     },
-                    title: {
-                        display: true,
-                        text: "Tensão (V)",
-                        font: {
-                            weight: "bold",
-                            size: 16
-                        },
-                        color: "black"
+                    grid: {
+                        display: false // Remove as linhas de grade no eixo Y
                     }
                 }
             }
@@ -111,24 +108,40 @@ router.post("/gerar-pdf", async (req, res) => {
         const existingPdfBytes = fs.readFileSync(inputPath);
         const pdfDoc = await PDFDocument.load(existingPdfBytes);
         const form = pdfDoc.getForm();
+
+        // Carrega as fontes padrão do PDF
+        const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+        // Função auxiliar para definir o texto e a fonte
+        function setText(field, text, isBold = false) {
+            const textField = form.getTextField(field);
+            textField.setText(text);
+            textField.updateAppearances(isBold ? boldFont : regularFont);
+        }
     
         // Preenche os campos do PDF
-        form.getTextField("nome").setText(clientData.name);
-        form.getTextField("email").setText(clientData.email);
-        form.getTextField("fone").setText(formatPhoneNumberPDF(clientData.phone));
-        form.getTextField("clube").setText(clientData.club + "    " + clientData.city + " - " + clientData.state);
-        form.getTextField("marca").setText(cartData.brand);
-        form.getTextField("modelo").setText(cartData.model);
-        form.getTextField("numero").setText(cartData.number);
-        form.getTextField("marcaBat").setText(batteryData.brand);
-        form.getTextField("quantidade").setText(batteryData.quantity);
-        form.getTextField("tipo").setText(batteryData.type);
-        form.getTextField("tensao").setText(batteryData.voltage);
-        form.getTextField("caixa").setText(batteryCheckData.batteryBox);
-        form.getTextField("parafusos").setText(batteryCheckData.screws);
-        form.getTextField("terminais").setText(batteryCheckData.terminalsCables);
-        form.getTextField("polos").setText(batteryCheckData.poles);
-        form.getTextField("nivel").setText(batteryCheckData.batteryLevel);
+        // Campos em negrito
+        setText("nome", clientData.name, true);
+        setText("clube", clientData.club, true);
+
+        // Campos normais
+        setText("email", clientData.email);
+        setText("fone", formatPhoneNumberPDF(clientData.phone));
+        setText("data", new Date().toLocaleDateString("pt-BR"));
+        setText("cidade", clientData.city + " - " + clientData.state);
+        setText("marca", cartData.brand);
+        setText("modelo", cartData.model);
+        setText("numero", cartData.number);
+        setText("marcaBat", batteryData.brand);
+        setText("quantidade", batteryData.quantity);
+        setText("tipo", batteryData.type);
+        setText("tensao", batteryData.voltage);
+        setText("caixa", batteryCheckData.batteryBox);
+        setText("parafusos", batteryCheckData.screws);
+        setText("terminais", batteryCheckData.terminalsCables);
+        setText("polos", batteryCheckData.poles);
+        setText("nivel", batteryCheckData.batteryLevel);
 
         // Gerar gráfico com base nos valores das tensões
         const chartImage = await generateChartImage(voltageData);
@@ -137,9 +150,9 @@ router.post("/gerar-pdf", async (req, res) => {
         const image = await pdfDoc.embedPng(chartImage);
         const page = pdfDoc.getPages()[0];
         page.drawImage(image, {
-            x: 25,
-            y: 150,
-            width: 600,
+            x: 300,
+            y: 170,
+            width: 250,
             height: 170
         });
 
