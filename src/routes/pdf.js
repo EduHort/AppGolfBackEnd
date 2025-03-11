@@ -41,7 +41,7 @@ async function generateChartImage(data) {
             scales: {
                 x: {
                     ticks: {
-                        font: { weight: "bold" },
+                        font: { weight: "bold", size: 28 },
                         color: "black"
                     },
                     grid: {
@@ -50,8 +50,7 @@ async function generateChartImage(data) {
                 },
                 y: {
                     ticks: {
-                        font: { weight: "bold" },
-                        color: "black"
+                        display: false // Remove os valores do eixo Y
                     },
                     grid: {
                         display: false // Remove as linhas de grade no eixo Y
@@ -64,7 +63,7 @@ async function generateChartImage(data) {
             afterDraw: (chart) => {
                 const ctx = chart.ctx;
                 ctx.save();
-                ctx.font = 'bold 14px Arial';
+                ctx.font = 'bold 28px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 
