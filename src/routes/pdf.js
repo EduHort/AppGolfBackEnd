@@ -12,7 +12,7 @@ const sendEmail = require("../controllers/email");
 const router = express.Router();
 
 async function generateChartImage(data) {
-    const width = 750;
+    const width = 780;
     const height = 510;
     const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
   
@@ -149,9 +149,9 @@ router.post("/gerar-pdf", async (req, res) => {
         const image = await pdfDoc.embedPng(chartImage);
         const page = pdfDoc.getPages()[0];
         page.drawImage(image, {
-            x: 300,
-            y: 170,
-            width: 250,
+            x: 310,
+            y: 165,
+            width: 260,
             height: 170
         });
 
